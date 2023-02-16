@@ -3,7 +3,7 @@
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 import { getFirestore, collection, getDocs } from "firebase/firestore";
-import { computed, onBeforeMount, ref } from "vue";
+import { computed, onBeforeMount, reactive, ref } from "vue";
 import {
   TransitionRoot,
   TransitionChild,
@@ -63,13 +63,81 @@ const playstyles = [
 ];
 
 let selectedPlaystyle = ref(playstyles[0]);
-let query = ref("");
 
 onBeforeMount(async () => {
   players.value = await (
     await getDocs(collection(db, "Demo"))
   ).docs.map((e) => e.data());
 });
+
+interface addDataInterface {
+  name: string;
+  details: string;
+  overall: number | null;
+  surface: number | null;
+  hole: number | null;
+}
+
+let addData: addDataInterface = reactive({
+  name: "",
+  details: "",
+  overall: null,
+  surface: null,
+  hole: null,
+});
+
+const submitUser = async () => {
+  addData.name = addData.name.trim();
+  addData.details = addData.details.trim();
+  let error = false;
+  if (!addData.name) {
+    error = true;
+    console.log("Missing Name");
+  }
+  if (!addData.overall || typeof addData.overall !== "number") {
+    error = true;
+    console.log("Missing Overall");
+  }
+  if (!addData.surface || typeof addData.surface !== "number") {
+    error = true;
+    console.log("Missing Surface");
+  }
+  if (!addData.hole || typeof addData.hole !== "number") {
+    error = true;
+    console.log("Missing Hole");
+  }
+  if (!selectedPlaystyle.value.name) {
+    error = true;
+    console.log("Missing Playstyle?");
+  }
+  if (error) return;
+
+  if (addData.overall < 0 || addData.overall > 10) {
+    error = true;
+    console.log("Overall must be within 0 and 10");
+  }
+  if (addData.surface < 0 || addData.surface > 10) {
+    error = true;
+    console.log("Overall must be within 0 and 10");
+  }
+  if (addData.hole < 0 || addData.hole > 10) {
+    error = true;
+    console.log("Overall must be within 0 and 10");
+  }
+
+  if (error) return;
+
+  closeModal();
+  resetData();
+};
+
+const resetData = () => {
+  addData.name = "";
+  addData.details = "";
+  addData.overall = null;
+  addData.surface = null;
+  addData.hole = null;
+};
 </script>
 
 <template>
@@ -151,7 +219,7 @@ onBeforeMount(async () => {
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-200 bg-white">
-                <tr v-for="player in players" :key="players.username">
+                <tr v-for="player in players" :key="player.username">
                   <td
                     class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6 flex gap-3"
                   >
@@ -252,6 +320,7 @@ onBeforeMount(async () => {
                       id="username"
                       class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
                       placeholder="Notch"
+                      v-model="addData.name"
                     />
                   </div>
                 </div>
@@ -322,7 +391,7 @@ onBeforeMount(async () => {
                   </div>
                 </Listbox>
                 <!-- Ratings -->
-                <div class="flex gap-3">
+                <div class="grid grid-cols-3 gap-3">
                   <div class="flex flex-col">
                     <label
                       for="overall"
@@ -339,6 +408,7 @@ onBeforeMount(async () => {
                         step="0.5"
                         max="10"
                         min="0"
+                        v-model="addData.overall"
                       />
                     </div>
                   </div>
@@ -358,6 +428,7 @@ onBeforeMount(async () => {
                         step="0.5"
                         max="10"
                         min="0"
+                        v-model="addData.surface"
                       />
                     </div>
                   </div>
@@ -377,6 +448,7 @@ onBeforeMount(async () => {
                         step="0.5"
                         max="10"
                         min="0"
+                        v-model="addData.hole"
                       />
                     </div>
                   </div>
@@ -386,7 +458,7 @@ onBeforeMount(async () => {
                   <label
                     for="details"
                     class="block text-sm font-medium text-gray-700 mt-2"
-                    >Details</label
+                    >Details(Optional)</label
                   >
                   <div class="mt-1">
                     <input
@@ -395,6 +467,7 @@ onBeforeMount(async () => {
                       id="details"
                       class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
                       placeholder="Extra Details"
+                      v-model="addData.details"
                     />
                   </div>
                 </div>
@@ -404,7 +477,7 @@ onBeforeMount(async () => {
                 <button
                   type="button"
                   class="inline-flex justify-center rounded-md border border-transparent bg-indigo-100 px-4 py-2 text-sm font-medium text-indigo-900 hover:bg-indigo-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
-                  @click="closeModal"
+                  @click="submitUser"
                 >
                   Add user
                 </button>
