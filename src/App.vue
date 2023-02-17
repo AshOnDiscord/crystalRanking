@@ -2,8 +2,17 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
-import { getFirestore, collection, getDocs } from "firebase/firestore";
-import { computed, onBeforeMount, reactive, ref } from "vue";
+import {
+  getFirestore,
+  collection,
+  getDocs,
+  setDoc,
+  doc,
+  getDoc,
+  DocumentSnapshot,
+  type DocumentData,
+} from "firebase/firestore";
+import { onBeforeMount, reactive, ref, type Ref } from "vue";
 import {
   TransitionRoot,
   TransitionChild,
@@ -11,16 +20,11 @@ import {
   DialogPanel,
   DialogTitle,
   Listbox,
-  ListboxLabel,
   ListboxButton,
   ListboxOptions,
   ListboxOption,
 } from "@headlessui/vue";
-import {
-  CheckIcon,
-  ChevronUpDownIcon,
-  ExclamationCircleIcon,
-} from "@heroicons/vue/20/solid";
+import { CheckIcon, ChevronUpDownIcon } from "@heroicons/vue/20/solid";
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
 
@@ -94,15 +98,15 @@ const submitUser = async () => {
     error = true;
     console.log("Missing Name");
   }
-  if (!addData.overall || typeof addData.overall !== "number") {
+  if (addData.overall == null || typeof addData.overall !== "number") {
     error = true;
     console.log("Missing Overall");
   }
-  if (!addData.surface || typeof addData.surface !== "number") {
+  if (!addData.surface == null || typeof addData.surface !== "number") {
     error = true;
     console.log("Missing Surface");
   }
-  if (!addData.hole || typeof addData.hole !== "number") {
+  if (!addData.hole == null || typeof addData.hole !== "number") {
     error = true;
     console.log("Missing Hole");
   }
@@ -127,8 +131,21 @@ const submitUser = async () => {
 
   if (error) return;
 
+  await setDoc(doc(db, "Demo", addData.name.toLowerCase()), {
+    username: addData.name,
+    details: addData.details,
+    overall: addData.overall,
+    surface: addData.surface,
+    hole: addData.hole,
+    playstyle: selectedPlaystyle.value.name,
+  });
+
   closeModal();
   resetData();
+
+  players.value = await (
+    await getDocs(collection(db, "Demo"))
+  ).docs.map((e) => e.data());
 };
 
 const resetData = () => {
@@ -137,6 +154,21 @@ const resetData = () => {
   addData.overall = null;
   addData.surface = null;
   addData.hole = null;
+};
+
+let query: Ref<string | null> = ref("");
+let searchPlayer: Ref<DocumentSnapshot<DocumentData> | null> = ref(null);
+
+const search = async () => {
+  if (!query.value?.trim()) {
+    searchPlayer.value = null;
+    query.value = null;
+    return;
+  }
+
+  searchPlayer.value = await getDoc(
+    doc(db, "Demo", query.value.toLowerCase().trim())
+  );
 };
 </script>
 
@@ -160,6 +192,26 @@ const resetData = () => {
         </button>
       </div>
     </div>
+    <form class="sm:flex sm:items-center mt-8" @submit.prevent="search">
+      <div class="sm:flex-auto">
+        <input
+          type="text"
+          name="username"
+          id="username"
+          class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+          placeholder="Notch"
+          v-model="query"
+        />
+      </div>
+      <div class="mt-4 sm:mt-0 sm:ml-4 sm:flex-none">
+        <button
+          type="button"
+          class="inline-flex items-center justify-center rounded-md border border-transparent bg-gray-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 sm:w-auto"
+        >
+          Search
+        </button>
+      </div>
+    </form>
     <div class="mt-8 flex flex-col">
       <div class="-my-2 -mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
         <div class="inline-block min-w-full py-2 align-middle md:px-6 lg:px-8">
@@ -218,7 +270,10 @@ const resetData = () => {
                   </th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-gray-200 bg-white">
+              <tbody
+                class="divide-y divide-gray-200 bg-white"
+                v-if="!searchPlayer"
+              >
                 <tr v-for="player in players" :key="player.username">
                   <td
                     class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6 flex gap-3"
@@ -237,7 +292,7 @@ const resetData = () => {
                     {{ player.details }}
                   </td>
                   <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                    {{ player.rating }}
+                    {{ player.overall }}
                   </td>
                   <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                     {{ player.surface }}
@@ -254,6 +309,91 @@ const resetData = () => {
                     <a href="#" class="text-indigo-600 hover:text-indigo-900"
                       >Edit<span class="sr-only"
                         >, {{ player.username }}</span
+                      ></a
+                    >
+                  </td>
+                </tr>
+              </tbody>
+              <tbody
+                class="divide-y divide-gray-200 bg-white"
+                v-else-if="!searchPlayer.exists()"
+              >
+                <tr>
+                  <td
+                    class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6 flex gap-3"
+                  >
+                    <img
+                      src="https://mc-heads.net/avatar/steve"
+                      class="w-6 h-6"
+                    />
+                    No user found
+                  </td>
+                  <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                    N/A
+                  </td>
+
+                  <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                    N/A
+                  </td>
+                  <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                    N/A
+                  </td>
+                  <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                    N/A
+                  </td>
+                  <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                    N/A
+                  </td>
+                  <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                    N/A
+                  </td>
+                  <td
+                    class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6"
+                  >
+                    <a href="#" class="text-indigo-600 hover:text-indigo-900"
+                      >Edit<span class="sr-only">, N/A</span></a
+                    >
+                  </td>
+                </tr>
+              </tbody>
+              <tbody class="divide-y divide-gray-200 bg-white" v-else>
+                <tr>
+                  <td
+                    class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6 flex gap-3"
+                  >
+                    <img
+                      :src="`https://mc-heads.net/avatar/${
+                        searchPlayer.data().username
+                      }`"
+                      class="w-6 h-6"
+                    />
+                    {{ searchPlayer.data().username }}
+                  </td>
+                  <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                    {{ searchPlayer.data().playstyle }}
+                  </td>
+
+                  <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                    {{ searchPlayer.data().details }}
+                  </td>
+                  <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                    {{ searchPlayer.data().overall }}
+                  </td>
+                  <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                    {{ searchPlayer.data().surface }}
+                  </td>
+                  <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                    {{ searchPlayer.data().hole }}
+                  </td>
+                  <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                    {{ searchPlayer.data().rank || "Unranked" }}
+                  </td>
+                  <td
+                    class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6"
+                  >
+                    <a href="#" class="text-indigo-600 hover:text-indigo-900"
+                      >Edit<span class="sr-only"
+                        >, {{ searchPlayer.data().username }}</span
                       ></a
                     >
                   </td>
