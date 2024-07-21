@@ -116,15 +116,15 @@ const submitUser = async () => {
   }
   if (error) return;
 
-  if (addData.overall < 0 || addData.overall > 10) {
+  if (addData.overall === null || addData.overall < 0 || addData.overall > 10) {
     error = true;
     console.log("Overall must be within 0 and 10");
   }
-  if (addData.surface < 0 || addData.surface > 10) {
+  if (addData.surface === null || addData.surface < 0 || addData.surface > 10) {
     error = true;
     console.log("Overall must be within 0 and 10");
   }
-  if (addData.hole < 0 || addData.hole > 10) {
+  if (addData.hole === null || addData.hole < 0 || addData.hole > 10) {
     error = true;
     console.log("Overall must be within 0 and 10");
   }
